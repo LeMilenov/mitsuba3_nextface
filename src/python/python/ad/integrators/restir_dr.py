@@ -545,7 +545,7 @@ class ReStirDRIntegrator(RBIntegrator):
                 sensor=sensor,
                 seed=seed,
                 spp=spp,
-                aovs=self.aovs()
+                aovs=self.aov_names()
             )
 
             # Generate a set of rays starting at the sensor
@@ -615,7 +615,7 @@ class ReStirDRIntegrator(RBIntegrator):
             raise Exception('No param for reuse set via self.param_name!')
 
         film = sensor.film()
-        aovs = self.aovs()
+        aovs = self.aov_names()
 
         # ReSTIR initialization
         if not self.use_ref and not self.restir_initialized:

@@ -67,7 +67,7 @@ public:
     virtual void clear() = 0;
 
     /// Return a image buffer object storing the developed image
-    virtual TensorXf develop(bool raw = false) const = 0;
+    virtual TensorXf develop(bool raw = false,  bool weight_divide = true) const = 0;
 
     /// Return a bitmap object storing the developed contents of the film
     virtual ref<Bitmap> bitmap(bool raw = false) const = 0;
