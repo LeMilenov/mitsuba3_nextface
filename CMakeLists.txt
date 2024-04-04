@@ -2,6 +2,7 @@
 # Top-level Mitsuba 3 CMake file, requires a recent version.
 # ----------------------------------------------------------
 cmake_minimum_required (VERSION 3.13...3.18)
+set(Python_EXECUTABLE "C:/Users/AQ14980/AppData/Local/Programs/Python/Python39/python.exe")
 
 project(mitsuba
   DESCRIPTION
