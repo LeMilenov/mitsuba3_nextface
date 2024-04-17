@@ -42,6 +42,3 @@
 	path = tutorials
 	url = https://github.com/mitsuba-renderer/mitsuba-tutorials
 	shallow = true
-[submodule "ext/drjit"]
-	path = ext/drjit
-	url = https://github.com/mitsuba-renderer/drjit
