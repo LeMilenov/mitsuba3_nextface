@@ -5,6 +5,7 @@
 # VS & VSCode
 /.vscode
 /.vs
+/out 
 
 # Jupyter
 /.ipynb_checkpoints
