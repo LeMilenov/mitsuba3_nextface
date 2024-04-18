@@ -6,81 +6,6 @@
 
 NAMESPACE_BEGIN(mitsuba)
 
-/**!
-
-.. _bsdf-diffuse:
-
-Smooth diffuse material (:monosp:`diffuse`)
--------------------------------------------
-
-.. pluginparameters::
-
- * - reflectance
-   - |spectrum| or |texture|
-   - Specifies the diffuse albedo of the material (Default: 0.5)
-   - |exposed|, |differentiable|
-
-The smooth diffuse material (also referred to as *Lambertian*)
-represents an ideally diffuse material with a user-specified amount of
-reflectance. Any received illumination is scattered so that the surface
-looks the same independently of the direction of observation.
-
-.. subfigstart::
-.. subfigure:: ../../resources/data/docs/images/render/bsdf_diffuse_plain.jpg
-   :caption: Homogeneous reflectance
-.. subfigure:: ../../resources/data/docs/images/render/bsdf_diffuse_textured.jpg
-   :caption: Textured reflectance
-.. subfigend::
-   :label: fig-diffuse
-
-Apart from a homogeneous reflectance value, the plugin can also accept
-a nested or referenced texture map to be used as the source of reflectance
-information, which is then mapped onto the shape based on its UV
-parameterization. When no parameters are specified, the model uses the default
-of 50% reflectance.
-
-Note that this material is one-sided---that is, observed from the
-back side, it will be completely black. If this is undesirable,
-consider using the :ref:`twosided <bsdf-twosided>` BRDF adapter plugin.
-The following XML snippet describes a diffuse material,
-whose reflectance is specified as an sRGB color:
-
-.. tabs::
-    .. code-tab:: xml
-        :name: diffuse-srgb
-
-        <bsdf type="diffuse">
-            <rgb name="reflectance" value="0.2, 0.25, 0.7"/>
-        </bsdf>
-
-    .. code-tab:: python
-
-        'type': 'diffuse',
-        'reflectance': {
-            'type': 'rgb',
-            'value': [0.2, 0.25, 0.7]
-        }
-
-Alternatively, the reflectance can be textured:
-
-.. tabs::
-    .. code-tab:: xml
-        :name: diffuse-texture
-
-        <bsdf type="diffuse">
-            <texture type="bitmap" name="reflectance">
-                <string name="filename" value="wood.jpg"/>
-            </texture>
-        </bsdf>
-
-    .. code-tab:: python
-
-        'type': 'diffuse',
-        'reflectance': {
-            'type': 'bitmap',
-            'filename': 'wood.jpg'
-        }
-*/
 template <typename Float, typename Spectrum>
 class RednerMat final : public BSDF<Float, Spectrum> {
 public:
@@ -88,122 +13,184 @@ public:
     MI_IMPORT_TYPES(Texture)
 
     RednerMat(const Properties &props) : Base(props) {
-        m_reflectance = props.texture<Texture>("reflectance", .5f);
-        m_flags = BSDFFlags::DiffuseReflection | BSDFFlags::FrontSide;
+        m_albedo = props.texture<Texture>("albedo", .1f);
+        m_specular = props.texture<Texture>("specular", .1f);
+        m_roughness = props.texture<Texture>("roughness", .1f);
+
+        m_components.push_back(BSDFFlags::GlossyReflection | BSDFFlags::FrontSide);
+        m_components.push_back(BSDFFlags::DiffuseReflection | BSDFFlags::FrontSide);
+        m_flags =  m_components[0] | m_components[1];
         dr::set_attr(this, "flags", m_flags);
-        m_components.push_back(m_flags);
+
+        // parameters_changed();
     }
 
     void traverse(TraversalCallback *callback) override {
-        callback->put_object("reflectance", m_reflectance.get(), +ParamFlags::Differentiable);
+        callback->put_object("albedo", m_albedo.get(), +ParamFlags::Differentiable);
+        if(m_specular)
+            callback->put_object("specular", m_specular.get(), +ParamFlags::Differentiable);
+        if(m_roughness)
+            callback->put_object("roughness", m_roughness.get(), +ParamFlags::Differentiable);
     }
 
     std::pair<BSDFSample3f, Spectrum> sample(const BSDFContext &ctx,
                                              const SurfaceInteraction3f &si,
-                                             Float /* sample1 */,
+                                             Float sample1 ,
                                              const Point2f &sample2,
                                              Mask active) const override {
         MI_MASKED_FUNCTION(ProfilerPhase::BSDFSample, active);
 
-        Float cos_theta_i = Frame3f::cos_theta(si.wi);
-        BSDFSample3f bs = dr::zeros<BSDFSample3f>();
+        bool has_specular = ctx.is_enabled(BSDFFlags::GlossyReflection, 0),
+             has_diffuse  = ctx.is_enabled(BSDFFlags::DiffuseReflection, 1);    
 
-        active &= cos_theta_i > 0.f;
-        if (unlikely(dr::none_or<false>(active) ||
-                     !ctx.is_enabled(BSDFFlags::DiffuseReflection)))
-            return { bs, 0.f };
+        Float diffuse_pmf =
+            mitsuba::luminance(m_albedo->eval(si, active), si.wavelengths);
+        Float specular_pmf =
+            mitsuba::luminance(m_specular->eval(si, active), si.wavelengths);
+        Float weight_pmf = diffuse_pmf + specular_pmf;
+        diffuse_pmf = dr::select(weight_pmf > 0.f, diffuse_pmf / weight_pmf, 0.f);
+        specular_pmf = dr::select(weight_pmf > 0.f, specular_pmf / weight_pmf, 0.f);
+        // not too sure of this one
+        diffuse_pmf = dr::select(has_diffuse, 1.0f, 0.f); 
+        specular_pmf = dr::select(has_diffuse, 0.0f, 1.f);
+        // compute masks Not too sure of those either
+        Mask diffuse_mask = diffuse_pmf < sample1;
+        Mask specular_mask = !diffuse_mask;
 
-        bs.wo = warp::square_to_cosine_hemisphere(sample2);
-        bs.pdf = warp::square_to_cosine_hemisphere_pdf(bs.wo);
-        bs.eta = 1.f;
-        bs.sampled_type = +BSDFFlags::DiffuseReflection;
-        bs.sampled_component = 0;
+        BSDFSample3f bs   = dr::zeros<BSDFSample3f>();
+        bs.eta = 1.0f;
 
-        UnpolarizedSpectrum value = m_reflectance->eval(si, active);
+        dr::masked(bs.wo, diffuse_mask) = mitsuba::warp::square_to_cosine_hemisphere(sample2);
+        dr::masked(bs.sampled_type, diffuse_mask) = +BSDFFlags::DiffuseReflection;
+        dr::masked(bs.sampled_component, diffuse_mask) = 0;
 
-        return { bs, depolarizer<Spectrum>(value) & (active && bs.pdf > 0.f) };
+        Float roughness = dr::maximum(m_roughness->eval_1(si, active), 1e-3f);
+        Float phong_exponent = roughness_to_phong(roughness);
+        // TOOD verify sample2[1]
+        Float phi = 2.0 * dr::Pi<Float> * sample2.y();
+        Float sin_phi   = dr::sin(phi);
+        Float cos_phi = dr::cos(phi);
+        Float cos_theta = dr::pow(sample2.x(), dr::rcp(phong_exponent + 2.0f));
+        Float sin_theta = dr::safe_sqrt(1.0f - cos_theta * cos_theta);
+        Normal3f m =
+            Normal3f(sin_theta * cos_phi, sin_theta * sin_phi, cos_theta);
+        dr::masked(bs.wo, specular_mask) = reflect(si.wi, m);
+
+        dr::masked(bs.sampled_type, specular_mask) = +BSDFFlags::GlossyReflection;
+        dr::masked(bs.sampled_component, specular_mask) = 1;
+
+        // Compute PDF
+        bs.pdf = pdf(ctx, si, bs.wo, active);
+        active &= bs.pdf > 0.f;
+        Spectrum result = eval(ctx, si, bs.wo, active);
+        return { bs, (depolarizer<Spectrum>(result) / bs.pdf) & active };
+
     }
-
+    Float roughness_to_phong(Float roughness ) const{
+        return dr::maximum(2.0f / roughness - 2.0f, 0.0f);
+    }
+    Float smithG1(Float roughness, Vector3f v) const{
+        Float cos_theta = v.z();
+        Float tan_theta = dr::safe_sqrt(dr::rcp(cos_theta * cos_theta) - 1.0f);
+        Float a         = dr::rcp(dr::sqrt(roughness) * tan_theta);
+        Float result = dr::select( a > 1.6, 1.0f, (3.535 * a + 2.181 * a * a) / (1.0f + 2.276 * a + 2.577 * a * a));
+        
+        return dr::select(dr::eq(tan_theta, 0.0f), 1.0f, result);
+    }
     Spectrum eval(const BSDFContext &ctx, const SurfaceInteraction3f &si,
                   const Vector3f &wo, Mask active) const override {
         MI_MASKED_FUNCTION(ProfilerPhase::BSDFEvaluate, active);
 
-        if (!ctx.is_enabled(BSDFFlags::DiffuseReflection))
-            return 0.f;
+        bool has_specular = ctx.is_enabled(BSDFFlags::GlossyReflection, 0),
+             has_diffuse  = ctx.is_enabled(BSDFFlags::DiffuseReflection, 1);
 
-        Float cos_theta_i = Frame3f::cos_theta(si.wi),
-              cos_theta_o = Frame3f::cos_theta(wo);
+        // contribution of the diffuse component
+        Vector3f diffuse_contrib =
+            dr::select(has_diffuse,
+                       m_albedo->eval(si, active) * dr::maximum(wo.z(), 0.0f) /
+                           dr::Pi<Float>,
+                       0.0f);
+        Vector3f m = dr::normalize(si.wi + wo);
+        Float roughness = dr::maximum(m_roughness->eval_1(si, active), 1e-3f);
+        Float phong_exponent = roughness_to_phong(roughness);
+        Vector3f specular_reflectance = m_specular->eval(si, active); // why not eval_1 ?
 
-        active &= cos_theta_i > 0.f && cos_theta_o > 0.f;
-
-        UnpolarizedSpectrum value =
-            m_reflectance->eval(si, active) * dr::InvPi<Float> * cos_theta_o;
-
-        return depolarizer<Spectrum>(value) & active;
+        Float D = dr::pow(dr::maximum(m.z(), 0.0f), phong_exponent) * (phong_exponent + 2.0f) / (2.0f * dr::Pi<Float>);
+        Float G = smithG1(roughness, si.wi) * smithG1(roughness, wo);
+        Vector3f F = specular_reflectance + (1.0f - specular_reflectance) * dr::pow(dr::maximum(1.0f - dr::abs( dr::dot(m, wo)), 0.0f), 5.0f);
+        Vector3f specular_contrib =
+            dr::select(wo.z() > 0.0f, F * D * G / (4.0f * si.wi.z()), 0.0f);
+        specular_contrib = dr::select(has_specular, specular_contrib, 0.0f);
+        return depolarizer<Spectrum>(specular_contrib + diffuse_contrib);
     }
 
     Float pdf(const BSDFContext &ctx, const SurfaceInteraction3f &si,
               const Vector3f &wo, Mask active) const override {
         MI_MASKED_FUNCTION(ProfilerPhase::BSDFEvaluate, active);
 
-        if (!ctx.is_enabled(BSDFFlags::DiffuseReflection))
-            return 0.f;
+        bool has_specular = ctx.is_enabled(BSDFFlags::GlossyReflection, 0),
+             has_diffuse  = ctx.is_enabled(BSDFFlags::DiffuseReflection, 1);    
 
-        Float cos_theta_i = Frame3f::cos_theta(si.wi),
-              cos_theta_o = Frame3f::cos_theta(wo);
-
-        Float pdf = warp::square_to_cosine_hemisphere_pdf(wo);
-
-        return dr::select(cos_theta_i > 0.f && cos_theta_o > 0.f, pdf, 0.f);
+        Float diffuse_pmf =
+            mitsuba::luminance(m_albedo->eval(si, active), si.wavelengths);
+        Float specular_pmf =
+            mitsuba::luminance(m_specular->eval(si, active), si.wavelengths);
+        Float weight_pmf = diffuse_pmf + specular_pmf;
+        diffuse_pmf = dr::select(weight_pmf > 0.f, diffuse_pmf / weight_pmf, 0.f);
+        specular_pmf = dr::select(weight_pmf > 0.f, specular_pmf / weight_pmf, 0.f);
+        // not too sure of this one
+        diffuse_pmf = dr::select(has_diffuse, 1.0f, 0.f); 
+        specular_pmf = dr::select(has_diffuse, 0.0f, 1.f);
+        // compute diffuse PDF
+        Float diffuse_pdf = mitsuba::warp::square_to_cosine_hemisphere_pdf(wo) * diffuse_pmf;
+        // compute specular PDF
+        Vector3f m = dr::normalize(si.wi + wo);
+        Float roughness = dr::maximum(m_roughness->eval_1(si, active), 1e-3f);
+        Float phong_exponent = roughness_to_phong(roughness);
+        Float D = dr::pow(dr::maximum(m.z(), 0.0f), phong_exponent) * (phong_exponent + 2.0f) / (2.0f * dr::Pi<Float>);
+        Float specular_pdf = dr::select(dr::abs(dr::dot(m, wo)) > 0.0f, specular_pmf * D * dr::maximum(m.z(), 0.0f) / (4.0f * dr::abs(dr::dot(m, wo))), 0.0f);
+        return dr::select(wo.z() > 0.0f, diffuse_pdf, specular_pdf);
     }
 
     std::pair<Spectrum, Float> eval_pdf(const BSDFContext &ctx,
                                         const SurfaceInteraction3f &si,
                                         const Vector3f &wo,
                                         Mask active) const override {
-        MI_MASKED_FUNCTION(ProfilerPhase::BSDFEvaluate, active);
-
-        if (!ctx.is_enabled(BSDFFlags::DiffuseReflection))
-            return { 0.f, 0.f };
-
-        Float cos_theta_i = Frame3f::cos_theta(si.wi),
-              cos_theta_o = Frame3f::cos_theta(wo);
-
-        active &= cos_theta_i > 0.f && cos_theta_o > 0.f;
-
-        UnpolarizedSpectrum value =
-            m_reflectance->eval(si, active) * dr::InvPi<Float> * cos_theta_o;
-
-        Float pdf = warp::square_to_cosine_hemisphere_pdf(wo);
-
-        return { depolarizer<Spectrum>(value) & active, dr::select(active, pdf, 0.f) };
+        return {eval(ctx, si, wo, active), pdf(ctx, si, wo, active)};
     }
 
     Spectrum eval_diffuse_reflectance(const SurfaceInteraction3f &si,
                                       Mask active) const override {
-        return m_reflectance->eval(si, active);
+        return m_albedo->eval(si, active);
     }
     UInt32 get_texel_index(const SurfaceInteraction3f &si,
             const std::string &reuse_texture,
             Mask active) const override {
-        if (m_reflectance->id() != reuse_texture)
-            return 0u;
+       const std::vector<ref<Texture>> textures{ m_albedo, m_specular, m_roughness};
 
-        return m_reflectance->get_texel_index(si, active);
+        for (unsigned int i = 0; i < textures.size(); ++i) {
+            if (textures[i]->id() == reuse_texture)
+                return textures[i]->get_texel_index(si, active);
+        }
+        return 0u;
     }
     std::string to_string() const override {
         std::ostringstream oss;
         oss << "RednerMat[" << std::endl
-            << "  reflectance = " << string::indent(m_reflectance) << std::endl
+            << "  albedo = " << string::indent(m_albedo) << std::endl
+            << "  specular = " << string::indent(m_specular) << std::endl
+            << "  roughness = " << string::indent(m_roughness) << std::endl
             << "]";
         return oss.str();
     }
 
     MI_DECLARE_CLASS()
 private:
-    ref<Texture> m_reflectance;
+    ref<Texture> m_albedo;
+    ref<Texture> m_specular;
+    ref<Texture> m_roughness;
 };
 
 MI_IMPLEMENT_CLASS_VARIANT(RednerMat, BSDF)
-MI_EXPORT_PLUGIN(RednerMat, "Smooth diffuse material")
+MI_EXPORT_PLUGIN(RednerMat, "custom bsdf")
 NAMESPACE_END(mitsuba)
