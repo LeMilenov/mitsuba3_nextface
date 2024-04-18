@@ -323,7 +323,7 @@ public:
             m_storage->clear();
     }
 
-    TensorXf develop(bool raw = false) const override {
+    TensorXf develop(bool raw = false,  bool weight_divide = true) const override {
         if (!m_storage)
             Throw("No storage allocated, was prepare() called first?");
 
@@ -363,9 +363,12 @@ public:
             // Gather the pixel values from the image data buffer
             Float weight = dr::gather<Float>(data, weight_idx),
                   values = dr::gather<Float>(data, values_idx);
-
+            
             // Perform the weight division unless the weight is zero
-            values /= dr::select(dr::eq(weight, 0.f), 1.f, weight);
+            if (weight_divide) {
+                // Perform the weight division unless the weight is zero
+                values /= dr::select(dr::eq(weight, 0.f), 1.f, weight);
+            }
 
             size_t shape[3] = { (size_t) size.y(), (size_t) size.x(),
                                 target_ch };

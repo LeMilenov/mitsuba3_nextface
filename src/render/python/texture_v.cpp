@@ -76,30 +76,49 @@ public:
     std::string to_string() const override {
         PYBIND11_OVERRIDE(std::string, Texture, to_string);
     }
+
+    UInt32 get_texel_index(const SurfaceInteraction3f &si,
+                        Mask active = true) const override {
+        PYBIND11_OVERRIDE(UInt32, Texture, get_texel_index, si, active);
+    }
 };
+
+template <typename Ptr, typename Cls>
+void bind_texture_generic(Cls &cls){ MI_PY_IMPORT_TYPES() 
+    cls.def(
+        "get_texel_index",
+        [](Ptr texture, const SurfaceInteraction3f &si, Mask active) {
+            return texture->get_texel_index(si, active);
+        },
+        "si"_a, "active"_a = true);
+}
 
 MI_PY_EXPORT(Texture) {
     MI_PY_IMPORT_TYPES(Texture)
     using PyTexture = PyTexture<Float, Spectrum>;
 
-    MI_PY_TRAMPOLINE_CLASS(PyTexture, Texture, Object)
-        .def(py::init<const Properties &>(), "props"_a)
-        .def_static("D65", py::overload_cast<ScalarFloat>(&Texture::D65), "scale"_a = 1.f)
-        .def_method(Texture, mean, D(Texture, mean))
-        .def_method(Texture, max, D(Texture, max))
-        .def_method(Texture, is_spatially_varying)
-        .def_method(Texture, eval, "si"_a, "active"_a = true)
-        .def_method(Texture, eval_1, "si"_a, "active"_a = true)
-        .def_method(Texture, eval_1_grad, "si"_a, "active"_a = true)
-        .def_method(Texture, eval_3, "si"_a, "active"_a = true)
-        .def_method(Texture, sample_spectrum, "si"_a, "sample"_a,
-                    "active"_a = true)
-        .def_method(Texture, resolution)
-        .def_method(Texture, pdf_spectrum, "si"_a, "active"_a = true)
-        .def_method(Texture, sample_position, "sample"_a, "active"_a = true)
-        .def_method(Texture, pdf_position, "p"_a, "active"_a = true)
-        .def_method(Texture, spectral_resolution)
-        .def_method(Texture, wavelength_range);
+    auto texture =
+        MI_PY_TRAMPOLINE_CLASS(PyTexture, Texture, Object)
+            .def(py::init<const Properties &>(), "props"_a)
+            .def_static("D65", py::overload_cast<ScalarFloat>(&Texture::D65),
+                        "scale"_a = 1.f)
+            .def_method(Texture, mean, D(Texture, mean))
+            .def_method(Texture, max, D(Texture, max))
+            .def_method(Texture, is_spatially_varying)
+            .def_method(Texture, eval, "si"_a, "active"_a = true)
+            .def_method(Texture, eval_1, "si"_a, "active"_a = true)
+            .def_method(Texture, eval_1_grad, "si"_a, "active"_a = true)
+            .def_method(Texture, eval_3, "si"_a, "active"_a = true)
+            .def_method(Texture, sample_spectrum, "si"_a, "sample"_a,
+                        "active"_a = true)
+            .def_method(Texture, resolution)
+            .def_method(Texture, pdf_spectrum, "si"_a, "active"_a = true)
+            .def_method(Texture, sample_position, "sample"_a, "active"_a = true)
+            .def_method(Texture, pdf_position, "p"_a, "active"_a = true)
+            .def_method(Texture, spectral_resolution)
+            .def_method(Texture, wavelength_range);
+
+    bind_texture_generic<Texture *>(texture);
 
     MI_PY_REGISTER_OBJECT("register_texture", Texture)
 }

@@ -11,6 +11,7 @@ set(CORE_PY_V_SRC
   ${CMAKE_CURRENT_SOURCE_DIR}/properties_v.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/random_v.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/ray_v.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/reservoir_v.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/rfilter_v.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/spectrum_v.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/spline_v.cpp

@@ -98,7 +98,11 @@ public:
             return { dr::empty<Wavelength>(), m_value };
         }
     }
-
+    UInt32 get_texel_index(const SurfaceInteraction3f &si, Mask active) const override {
+        DRJIT_MARK_USED(si);
+        DRJIT_MARK_USED(active);
+        return 0u;
+    }
     Float mean() const override { return m_value; }
 
     ScalarVector2f wavelength_range() const override {

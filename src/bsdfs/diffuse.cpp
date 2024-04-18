@@ -183,7 +183,14 @@ public:
                                       Mask active) const override {
         return m_reflectance->eval(si, active);
     }
+    UInt32 get_texel_index(const SurfaceInteraction3f &si,
+            const std::string &reuse_texture,
+            Mask active) const override {
+        if (m_reflectance->id() != reuse_texture)
+            return 0u;
 
+        return m_reflectance->get_texel_index(si, active);
+    }
     std::string to_string() const override {
         std::ostringstream oss;
         oss << "SmoothDiffuse[" << std::endl

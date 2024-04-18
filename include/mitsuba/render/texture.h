@@ -219,7 +219,13 @@ public:
     /// Convenience function to create a product texture of a texture and the
     /// standard D65 illuminant
     static ref<Texture> D65(ref<Texture> texture);
+    /// Return index(es) that would have been sampled by eval()
+    virtual UInt32 get_texel_index(const SurfaceInteraction3f &, Mask = true) const {
+        std::string msg = "Texture::get_texel_index() not implemented for"
+            " this texture type (id=" + id() + ")!";
 
+        Throw(msg.c_str());
+    }
     /// Return a string identifier
     std::string id() const override { return m_id; }
 

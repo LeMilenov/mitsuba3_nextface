@@ -6472,6 +6472,20 @@ static const char *__doc_mitsuba_Resampler_target_resolution = R"doc(Return the 
 
 static const char *__doc_mitsuba_Resampler_to_string = R"doc(Return a human-readable summary)doc";
 
+static const char *__doc_mitsuba_Reservoir = R"doc(Reservoir data structure for use in ReSTIR.)doc";
+
+static const char *__doc_mitsuba_Reservoir_weight_sum = R"doc(Sum of weights in reservoir.)doc";
+
+static const char *__doc_mitsuba_Reservoir_M = R"doc(Number of candidates.)doc";
+
+static const char *__doc_mitsuba_Reservoir_sample_idx = R"doc(Index of sample.)doc";
+
+static const char *__doc_mitsuba_Reservoir_sample_value = R"doc(Sample value.)doc";
+
+static const char *__doc_mitsuba_Reservoir_uvw = R"doc(Sample random numbers.)doc";
+
+static const char *__doc_mitsuba_Reservoir_W = R"doc(Unbiased contribution weight.)doc";
+
 static const char *__doc_mitsuba_Sampler =
 R"doc(Base class of all sample generators.
 

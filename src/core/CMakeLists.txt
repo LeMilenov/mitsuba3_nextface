@@ -48,6 +48,7 @@ add_library(mitsuba-core OBJECT
   qmc.cpp           ${INC_DIR}/qmc.h
                     ${INC_DIR}/random.h
                     ${INC_DIR}/ray.h
+                    ${INC_DIR}/reservoir.h
   rfilter.cpp       ${INC_DIR}/rfilter.h
   spectrum.cpp      ${INC_DIR}/spectrum.h
                     ${INC_DIR}/spline.h

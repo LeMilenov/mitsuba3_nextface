@@ -841,7 +841,30 @@ public:
                                       Mask active) const override {
         return m_base_color->eval(si, active);
     }
+    UInt32 get_texel_index(const SurfaceInteraction3f &si,
+            const std::string &reuse_texture,
+            Mask active) const override {
+        const std::vector<ref<Texture>> textures {
+            m_base_color,
+            m_roughness,
+            m_anisotropic,
+            m_sheen,
+            m_sheen_tint,
+            m_spec_trans,
+            m_flatness,
+            m_spec_tint,
+            m_clearcoat,
+            m_clearcoat_gloss,
+            m_metallic,
+        };
 
+        for (unsigned int i = 0; i < textures.size(); ++i) {
+            if (textures[i]->id() == reuse_texture)
+                return textures[i]->get_texel_index(si, active);
+        }
+
+        return 0u;
+    }
     std::string to_string() const override {
         std::ostringstream oss;
         oss << "Principled BSDF :" << std::endl

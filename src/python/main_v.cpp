@@ -61,6 +61,7 @@ MI_PY_DECLARE(BoundingBox);
 MI_PY_DECLARE(BoundingSphere);
 MI_PY_DECLARE(Frame);
 MI_PY_DECLARE(Ray);
+MI_PY_DECLARE(Reservoir);
 MI_PY_DECLARE(DiscreteDistribution);
 MI_PY_DECLARE(DiscreteDistribution2D);
 MI_PY_DECLARE(ContinuousDistribution);
@@ -154,6 +155,7 @@ PYBIND11_MODULE(MODULE_NAME, m) {
 
     MI_PY_IMPORT(Object);
     MI_PY_IMPORT(Ray);
+    MI_PY_IMPORT(Reservoir);
     MI_PY_IMPORT(BoundingBox);
     MI_PY_IMPORT(BoundingSphere);
     MI_PY_IMPORT(Frame);

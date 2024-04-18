@@ -595,7 +595,23 @@ public:
         const size_t *shape = m_texture.shape();
         return { (int) shape[1], (int) shape[0] };
     }
+    UInt32 get_texel_index(const SurfaceInteraction3f &si, Mask active) const override {
+        // Need to use nearest neighbor sampling for texel index
+        if (m_texture.filter_mode() != dr::FilterMode::Nearest) {
+            Throw("get_texel_index(): texture filter mode must be "
+                  "nearest neighbor for texel index sampling");
+        }
 
+        DRJIT_MARK_USED(active);
+
+        Point2f uv = si.uv;
+        ScalarVector2i res = resolution();
+
+        // TODO: do something when mask is false?
+        Point2u pos = dr::floor2int<Point2u>(uv * res);
+
+        return dr::fmadd(pos.y(), res.x(), pos.x());
+    }
     Float mean() const override { return m_mean; }
 
     bool is_spatially_varying() const override { return true; }

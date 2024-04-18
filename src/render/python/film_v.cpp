@@ -30,8 +30,8 @@ public:
         PYBIND11_OVERRIDE_PURE(void, Film, clear);
     }
 
-    TensorXf develop(bool raw = false) const override {
-        PYBIND11_OVERRIDE_PURE(TensorXf, Film, develop, raw);
+    TensorXf develop(bool raw = false, bool weight_divide = true) const override {
+        PYBIND11_OVERRIDE_PURE(TensorXf, Film, develop, raw, weight_divide);
     }
 
     ref<Bitmap> bitmap(bool raw = false) const override {
@@ -85,7 +85,7 @@ MI_PY_EXPORT(Film) {
         .def_method(Film, prepare, "aovs"_a)
         .def_method(Film, put_block, "block"_a)
         .def_method(Film, clear)
-        .def_method(Film, develop, "raw"_a = false)
+        .def_method(Film, develop, "raw"_a = false, "weight_divide"_a = true)
         .def_method(Film, bitmap, "raw"_a = false)
         .def_method(Film, write, "path"_a)
         .def_method(Film, sample_border)

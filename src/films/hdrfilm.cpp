@@ -301,7 +301,7 @@ public:
             m_storage->clear();
     }
 
-    TensorXf develop(bool raw = false) const override {
+    TensorXf develop(bool raw = false, bool weight_divide = true) const override {
         if (!m_storage)
             Throw("No storage allocated, was prepare() called first?");
 
@@ -395,9 +395,10 @@ public:
                     dr::scatter(values, xyz[2], out_idx + 2);
                 }
             }
-
-            // Perform the weight division unless the weight is zero
-            values /= dr::select(dr::eq(weight, 0.f), 1.f, weight);
+            if (weight_divide){
+                // Perform the weight division unless the weight is zero
+                values /= dr::select(dr::eq(weight, 0.f), 1.f, weight);
+            }
 
             size_t shape[3] = { (size_t) size.y(), (size_t) size.x(),
                                 target_ch };

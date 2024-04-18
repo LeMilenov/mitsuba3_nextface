@@ -281,7 +281,20 @@ public:
             return result;
         }
     }
+    UInt32 get_texel_index(const SurfaceInteraction3f &si,
+            const std::string &reuse_texture,
+            Mask active) const override {
+        Mask front_side = Frame3f::cos_theta(si.wi) > 0.f && active,
+            back_side  = Frame3f::cos_theta(si.wi) < 0.f && active;
 
+        if (dr::any_or <true> (front_side))
+            return m_brdf[0]->get_texel_index(si, reuse_texture, front_side);
+        
+        if (dr::any_or <true> (back_side))
+            return m_brdf[1]->get_texel_index(si, reuse_texture, back_side);
+
+        return 0u;
+    }
     std::string to_string() const override {
         std::ostringstream oss;
         oss << "TwoSided[" << std::endl

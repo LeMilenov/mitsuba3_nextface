@@ -471,7 +471,16 @@ public:
      */
     virtual Spectrum eval_null_transmission(const SurfaceInteraction3f &si,
                                             Mask active = true) const;
+    /// Get an for the data that was sampled at a particular surface interaction
+    virtual UInt32 get_texel_index(const SurfaceInteraction3f &si,
+            const std::string &reuse_texture,
+            Mask active) const {
+        DRJIT_MARK_USED(si);
+        DRJIT_MARK_USED(reuse_texture);
+        DRJIT_MARK_USED(active);
 
+        return 0u;
+    }
     /**
      * \brief Returns whether this BSDF contains the specified attribute.
      *
@@ -659,6 +668,7 @@ DRJIT_VCALL_TEMPLATE_BEGIN(mitsuba::BSDF)
     DRJIT_VCALL_METHOD(eval_null_transmission)
     DRJIT_VCALL_METHOD(pdf)
     DRJIT_VCALL_METHOD(eval_pdf)
+    DRJIT_VCALL_METHOD(get_texel_index)
     DRJIT_VCALL_METHOD(eval_pdf_sample)
     DRJIT_VCALL_METHOD(eval_diffuse_reflectance)
     DRJIT_VCALL_METHOD(has_attribute)

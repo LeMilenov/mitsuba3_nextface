@@ -162,7 +162,13 @@ template <typename Ptr, typename Cls> void bind_bsdf_generic(Cls &cls) {
         .def("flags", [](Ptr bsdf) { return bsdf->flags(); }, D(BSDF, flags))
         .def("needs_differentials",
              [](Ptr bsdf) { return bsdf->needs_differentials(); },
-             D(BSDF, needs_differentials));
+             D(BSDF, needs_differentials))
+        .def("get_texel_index",
+            [](Ptr bsdf, const SurfaceInteraction3f &si,
+                    const std::string &reuse_texture,
+                    Mask active) {
+                return bsdf->get_texel_index(si, reuse_texture, active);
+            }, "si"_a, "reuse_texture"_a, "active"_a = true);
 
     if constexpr (dr::is_array_v<Ptr>)
         bind_drjit_ptr_array(cls);
