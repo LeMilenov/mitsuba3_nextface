@@ -505,7 +505,21 @@ public:
                                       Mask active) const override {
         return m_diffuse_reflectance->eval(si, active);
     }
+    UInt32 get_texel_index(const SurfaceInteraction3f &si,
+                           const std::string &reuse_texture,
+                           Mask active) const override {
+        const std::vector<ref<Texture>> textures{ m_diffuse_reflectance,
+                                                  m_specular_reflectance };
 
+        for (unsigned int i = 0; i < textures.size(); ++i) {
+            if (textures[i]->id() == reuse_texture)
+            //    std::cout << "Roughplastic get_texel_index " << reuse_texture
+            //         << std::endl;
+                return textures[i]->get_texel_index(si, active);
+        }
+
+        return 0u;
+    };
     std::string to_string() const override {
         std::ostringstream oss;
         oss << "RoughPlastic[" << std::endl
