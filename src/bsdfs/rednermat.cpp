@@ -14,11 +14,11 @@ public:
 
     RednerMat(const Properties &props) : Base(props) {
         m_albedo = props.texture<Texture>("albedo", .1f);
-        m_specular = props.texture<Texture>("specular", .1f);
+        m_specular  = props.texture<Texture>("specular", .1f);
         m_roughness = props.texture<Texture>("roughness", .1f);
 
-        m_components.push_back(BSDFFlags::GlossyReflection | BSDFFlags::FrontSide);
         m_components.push_back(BSDFFlags::DiffuseReflection | BSDFFlags::FrontSide);
+        m_components.push_back(BSDFFlags::GlossyReflection | BSDFFlags::FrontSide);
         m_flags =  m_components[0] | m_components[1];
         dr::set_attr(this, "flags", m_flags);
 
@@ -40,13 +40,13 @@ public:
                                              Mask active) const override {
         MI_MASKED_FUNCTION(ProfilerPhase::BSDFSample, active);
 
-        bool has_specular = ctx.is_enabled(BSDFFlags::GlossyReflection, 0),
-             has_diffuse  = ctx.is_enabled(BSDFFlags::DiffuseReflection, 1);    
+         bool   has_diffuse  = ctx.is_enabled(BSDFFlags::DiffuseReflection, 0),
+                has_specular = ctx.is_enabled(BSDFFlags::GlossyReflection, 1);
 
         Float diffuse_pmf =
-            mitsuba::luminance(m_albedo->eval(si, active), si.wavelengths);
-        Float specular_pmf =
-            mitsuba::luminance(m_specular->eval(si, active), si.wavelengths);
+             mitsuba::luminance(m_albedo->eval(si, active), si.wavelengths);
+         Float specular_pmf =
+             mitsuba::luminance(m_specular->eval(si, active), si.wavelengths);
         Float weight_pmf = diffuse_pmf + specular_pmf;
         diffuse_pmf = dr::select(weight_pmf > 0.f, diffuse_pmf / weight_pmf, 0.f);
         specular_pmf = dr::select(weight_pmf > 0.f, specular_pmf / weight_pmf, 0.f);
@@ -66,7 +66,7 @@ public:
         dr::masked(bs.sampled_type, diffuse_mask) = +BSDFFlags::DiffuseReflection;
         dr::masked(bs.sampled_component, diffuse_mask) = 0;
 
-        Float roughness = dr::maximum(m_roughness->eval_1(si, active), 1e-3f);
+        Float roughness = dr::maximum(m_roughness->eval_1(si, active), 1e-5f);
         Float phong_exponent = roughness_to_phong(roughness);
         // TOOD verify sample2[1]
         Float phi = 2.0 * dr::Pi<Float> * sample2.y();
@@ -103,8 +103,8 @@ public:
                   const Vector3f &wo, Mask active) const override {
         MI_MASKED_FUNCTION(ProfilerPhase::BSDFEvaluate, active);
 
-        bool has_specular = ctx.is_enabled(BSDFFlags::GlossyReflection, 0),
-             has_diffuse  = ctx.is_enabled(BSDFFlags::DiffuseReflection, 1);
+        bool has_diffuse  = ctx.is_enabled(BSDFFlags::DiffuseReflection, 0),
+             has_specular = ctx.is_enabled(BSDFFlags::GlossyReflection, 1);
 
         // contribution of the diffuse component
         Vector3f diffuse_contrib =
@@ -113,7 +113,7 @@ public:
                            dr::Pi<Float>,
                        0.0f);
         Vector3f m = dr::normalize(si.wi + wo);
-        Float roughness = dr::maximum(m_roughness->eval_1(si, active), 1e-3f);
+        Float roughness = dr::maximum(m_roughness->eval_1(si, active), 1e-5f);
         Float phong_exponent = roughness_to_phong(roughness);
         Vector3f specular_reflectance = m_specular->eval(si, active); // why not eval_1 ?
 
@@ -130,8 +130,9 @@ public:
               const Vector3f &wo, Mask active) const override {
         MI_MASKED_FUNCTION(ProfilerPhase::BSDFEvaluate, active);
 
-        bool has_specular = ctx.is_enabled(BSDFFlags::GlossyReflection, 0),
-             has_diffuse  = ctx.is_enabled(BSDFFlags::DiffuseReflection, 1);    
+        bool has_diffuse  = ctx.is_enabled(BSDFFlags::DiffuseReflection, 0), 
+             has_specular = ctx.is_enabled(BSDFFlags::GlossyReflection, 1);
+            
 
         Float diffuse_pmf =
             mitsuba::luminance(m_albedo->eval(si, active), si.wavelengths);
@@ -149,7 +150,7 @@ public:
         Float diffuse_pdf = mitsuba::warp::square_to_cosine_hemisphere_pdf(wo) * diffuse_pmf;
         // compute specular PDF
         Vector3f m = dr::normalize(si.wi + wo);
-        Float roughness = dr::maximum(m_roughness->eval_1(si, active), 1e-3f);
+        Float roughness = dr::maximum(m_roughness->eval_1(si, active), 1e-2f);
         Float phong_exponent = roughness_to_phong(roughness);
         Float D = dr::pow(dr::maximum(m.z(), 0.0f), phong_exponent) * (phong_exponent + 2.0f) / (2.0f * dr::Pi<Float>);
         Float specular_pdf = dr::select(dr::abs(dr::dot(m, wo)) > 0.0f, specular_pmf * D * dr::maximum(m.z(), 0.0f) / (4.0f * dr::abs(dr::dot(m, wo))), 0.0f);
