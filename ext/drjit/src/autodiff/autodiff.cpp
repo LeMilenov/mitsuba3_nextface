@@ -389,10 +389,12 @@ struct State {
         }
 
         size_t edges_used = edges.size() - unused_edges.size() - 1;
-        if (edges_used != 0)
+        if (edges_used != 0) {
             ad_log(Warn,
                    "drjit-autodiff: edge leak detected (%zu edges "
                    "remain in use)!", edges_used);
+             ad_fail("fail to free memory");
+        }
     }
 
     Variable *operator[](uint32_t index) {
