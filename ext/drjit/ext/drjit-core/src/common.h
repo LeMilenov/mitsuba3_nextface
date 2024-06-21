@@ -19,6 +19,7 @@
 #endif
 
 #if defined(__linux__)
+#include <cstdint>
 #include <pthread.h>
 using Lock = pthread_spinlock_t;
 
