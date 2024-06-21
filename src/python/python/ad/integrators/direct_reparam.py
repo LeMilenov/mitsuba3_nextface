@@ -78,6 +78,9 @@ class DirectReparamIntegrator(ADIntegrator):
 
         # Enable antithetic sampling in the reparameterization?
         self.reparam_antithetic = props.get('reparam_antithetic', False)
+        
+        # Generate a mask
+        self.mask = props.get('mask', False)
 
     def reparam(self,
                 scene: mi.Scene,
@@ -134,6 +137,8 @@ class DirectReparamIntegrator(ADIntegrator):
 
         pi = scene.ray_intersect_preliminary(ray_reparam, active)
         si = pi.compute_surface_interaction(ray_reparam)
+
+        si_hit = si.is_valid()
 
         active_next = mi.Bool(active)
 
@@ -217,6 +222,6 @@ class DirectReparamIntegrator(ADIntegrator):
 
         L += L_bsdf * bsdf_weight * ray_bsdf_det * mis_bsdf
 
-        return L, active, None
+        return L, si_hit, None
 
 mi.register_integrator("direct_reparam", lambda props: DirectReparamIntegrator(props))
